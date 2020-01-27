@@ -126,41 +126,21 @@ static void Cycle_ReinforceLink(Event *a, Event *b)
             //temporal induction
             if(!Stamp_checkOverlap(&a->stamp, &b->stamp))
             {
+                Implication precondition_implication = Inference_BeliefInduction(a, b);
+                precondition_implication.sourceConcept = A;
+                precondition_implication.sourceConceptTerm = A->term;
+                if(precondition_implication.truth.confidence >= MIN_CONFIDENCE)
                 {
-                    Implication precondition_implication = Inference_BeliefInduction(a, b);
-                    precondition_implication.sourceConcept = A;
-                    precondition_implication.sourceConceptTerm = A->term;
-                    if(precondition_implication.truth.confidence >= MIN_CONFIDENCE)
+                    int operationID = Narsese_getOperationID(&a->term);
+                    IN_DEBUG ( if(operationID != 0) { Narsese_PrintTerm(&precondition_implication.term); Truth_Print(&precondition_implication.truth); puts("\n"); getchar(); } )
+                    IN_OUTPUT( fputs("Formed implication: ", stdout); Implication_Print(&precondition_implication); )
+                    Implication *revised_precon = Table_AddAndRevise(&B->precondition_beliefs[operationID], &precondition_implication);
+                    if(revised_precon != NULL)
                     {
-                        int operationID = Narsese_getOperationID(&a->term);
-                        IN_DEBUG ( if(operationID != 0) { Narsese_PrintTerm(&precondition_implication.term); Truth_Print(&precondition_implication.truth); puts("\n"); getchar(); } )
-                        IN_OUTPUT( fputs("Formed implication: ", stdout); Implication_Print(&precondition_implication); )
-                        Implication *revised_precon = Table_AddAndRevise(&B->precondition_beliefs[operationID], &precondition_implication);
-                        if(revised_precon != NULL)
-                        {
-                            revised_precon->sourceConcept = A;
-                            revised_precon->sourceConceptTerm = A->term;
-                            Memory_printAddedImplication(&revised_precon->term, &revised_precon->truth, false, revised_precon->truth.confidence > precondition_implication.truth.confidence);
-                        }
-                    }
-                }
-                //and other way around for STDP-based weakening
-                {
-                    Implication precondition_implication = Inference_BeliefInduction(b, a);
-                    precondition_implication.sourceConcept = B;
-                    precondition_implication.sourceConceptTerm = B->term;
-                    if(precondition_implication.truth.confidence >= MIN_CONFIDENCE)
-                    {
-                        int operationID = Narsese_getOperationID(&b->term);
-                        IN_DEBUG ( if(operationID != 0) { Narsese_PrintTerm(&precondition_implication.term); Truth_Print(&precondition_implication.truth); puts("\n"); getchar(); } )
-                        IN_OUTPUT( fputs("Formed implication: ", stdout); Implication_Print(&precondition_implication); )
-                        Implication *revised_precon = Table_AddAndRevise(&A->precondition_beliefs[operationID], &precondition_implication);
-                        if(revised_precon != NULL)
-                        {
-                            revised_precon->sourceConcept = B;
-                            revised_precon->sourceConceptTerm = B->term;
-                            Memory_printAddedImplication(&revised_precon->term, &revised_precon->truth, false, revised_precon->truth.confidence > precondition_implication.truth.confidence);
-                        }
+                        revised_precon->sourceConcept = A;
+                        revised_precon->sourceConceptTerm = A->term;
+                        /*IN_OUTPUT( if(true && revised_precon->term_hash != 0) { fputs("REVISED pre-condition implication: ", stdout); Implication_Print(revised_precon); } ) */
+                        Memory_printAddedImplication(&revised_precon->term, &revised_precon->truth, false, revised_precon->truth.confidence > precondition_implication.truth.confidence);
                     }
                 }
             }
@@ -214,14 +194,14 @@ void Cycle_Perform(long currentTime)
                 if(len == 0) //postcondition always len1
                 {
                     int op_id = Narsese_getOperationID(&postcondition.term);
-                    //commented out, STDP should handle it:
-                    //Decision_AssumptionOfFailure(op_id, currentTime); //collection of negative evidence, new way
+                    Decision_AssumptionOfFailure(op_id, currentTime); //collection of negative evidence, new way
                     //build link between internal derivations and external event to explain it:
                     for(int k=0; k<eventsSelected; k++)
                     {
                         if(selectedEvents[k].occurrenceTime < postcondition.occurrenceTime)
                         {
                             Cycle_ReinforceLink(&selectedEvents[k], &postcondition);
+                            Cycle_ReinforceLink(&postcondition, &selectedEvents[k]);
                         }
                     }
                     for(int k=1; k<belief_events.itemsAmount; k++)
@@ -232,6 +212,7 @@ void Cycle_Perform(long currentTime)
                             if(precondition != NULL && precondition->type != EVENT_TYPE_DELETED)
                             {
                                 Cycle_ReinforceLink(precondition, &postcondition);
+                                Cycle_ReinforceLink(&postcondition, precondition);
                             }
                         }
                     }
