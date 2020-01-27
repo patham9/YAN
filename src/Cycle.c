@@ -193,8 +193,9 @@ void Cycle_Perform(long currentTime)
                 //Mine for <(&/,precondition,operation) =/> postcondition> patterns in the FIFO:
                 if(len == 0) //postcondition always len1
                 {
-                    int op_id = Narsese_getOperationID(&postcondition.term);
-                    Decision_AssumptionOfFailure(op_id, currentTime); //collection of negative evidence, new way
+                    //commented out Decision_AssumptionOfFailure since it's done with STDP now:
+                    //int op_id = Narsese_getOperationID(&postcondition.term);
+                    //Decision_AssumptionOfFailure(op_id, currentTime); //collection of negative evidence, new way
                     //build link between internal derivations and external event to explain it:
                     for(int k=0; k<eventsSelected; k++)
                     {
@@ -212,7 +213,30 @@ void Cycle_Perform(long currentTime)
                             if(precondition != NULL && precondition->type != EVENT_TYPE_DELETED)
                             {
                                 Cycle_ReinforceLink(precondition, &postcondition);
-                                Cycle_ReinforceLink(&postcondition, precondition);
+                                if(Narsese_copulaEquals(precondition->term.atoms[0], '+')) //sequence
+                                {
+                                    Term potential_operator = Term_ExtractSubterm(&precondition->term, 2); //(a &/ ^op)
+                                    if(Narsese_isOperation(&potential_operator))
+                                    {
+                                        Term newPostconditionTerm = {0};
+                                        newPostconditionTerm.atoms[0] = '+';
+                                        Term_OverrideSubterm(&newPostconditionTerm, 1, &postcondition.term);
+                                        Term_OverrideSubterm(&newPostconditionTerm, 2, &potential_operator);
+                                        Event newPostcondition = postcondition;
+                                        newPostcondition.term = newPostconditionTerm;
+                                        Event newPrecondition = *precondition;
+                                        newPrecondition.term = Narsese_GetPreconditionWithoutOp(&precondition->term);
+                                        Cycle_ReinforceLink(&newPostcondition, &newPrecondition);
+                                    }
+                                    else
+                                    {
+                                        Cycle_ReinforceLink(&postcondition, precondition);
+                                    }
+                                }
+                                else
+                                {
+                                    Cycle_ReinforceLink(&postcondition, precondition);
+                                }
                             }
                         }
                     }
