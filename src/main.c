@@ -1347,6 +1347,28 @@ void RuleTable_Test()
     puts(">>RuleTable Test successul");
 }
 
+void STDP_Test()
+{
+    puts(">>STDP test start");
+    for(long occurrenceA = 0; occurrenceA<10; occurrenceA++)
+    {
+        for(long occurrenceB = 0; occurrenceB<10; occurrenceB++)
+        {
+            double stdpvalue = STDP(occurrenceA, occurrenceB);
+            printf("occurrenceA=%ld, occurrenceB=%ld value=%f\n",  occurrenceA, occurrenceB, stdpvalue);
+            if(occurrenceB > occurrenceA)
+            {
+                assert(stdpvalue > 0, "Issue with STDP function!");
+            }
+            if(occurrenceB < occurrenceA)
+            {
+                assert(stdpvalue < 0, "Issue with STDP function!");
+            }
+        }
+    }
+    puts(">>STDP test successful");
+}
+
 int main(int argc, char *argv[])
 {
     //printf("sizeof concept %d\n",(int) sizeof(Concept));
@@ -1382,6 +1404,7 @@ int main(int argc, char *argv[])
         }
     }
     OUTPUT = 0;
+    STDP_Test();
     //Term_Test();
     Stamp_Test();
     FIFO_Test();

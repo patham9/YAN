@@ -24,19 +24,32 @@ Event Inference_BeliefIntersection(Event *a, Event *b)
                      .occurrenceTime = conclusionTime };
 }
 
+double STDP(double occurrenceA, double occurrenceB)
+{
+    double TA = 10,  TB = 10;
+    double kA = 1.0, kB = 1.0;
+    double d = occurrenceA - occurrenceB;
+    return d > 0 ? -exp(-d/TA)*kA : exp(d/TB)*kB;
+}
+
+double toFrequency(double stdpval)
+{
+    return MIN(1, MAX(0, stdpval / 2.0 + 0.5));
+}
+
 //{Event a., Event b., after(b,a)} |- Implication <a =/> b>.
 Implication Inference_BeliefInduction(Event *a, Event *b)
 {
-    assert(b->occurrenceTime > a->occurrenceTime, "after(b,a) violated in Inference_BeliefInduction");
     DERIVATION_STAMP_AND_TIME(a,b)
     Term term = {0};
     term.atoms[0] = Narsese_AtomicTermIndex("$");
     Term_OverrideSubterm(&term, 1, &a->term);
     Term_OverrideSubterm(&term, 2, &b->term);
     return (Implication) { .term = term, 
-                           .truth = Truth_Eternalize(Truth_Induction(truthA, truthB)),
+                           .truth = { .frequency = toFrequency(STDP(a->occurrenceTime, b->occurrenceTime)), 
+                                      .confidence = Truth_Eternalize(Truth_Induction(truthA, truthB)).confidence },
                            .stamp = conclusionStamp,
-                           .occurrenceTimeOffset = b->occurrenceTime - a->occurrenceTime };
+                           .occurrenceTimeOffset = abs(b->occurrenceTime - a->occurrenceTime) };
 }
 
 //{Event a., Event a.} |- Event a.

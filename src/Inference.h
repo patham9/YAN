@@ -36,4 +36,7 @@ Event Inference_OperationDeduction(Event *compound, Event *component, long curre
 Event Inference_IncreasedActionPotential(Event *existing_potential, Event *incoming_spike, long currentTime, bool *revised);
 //{Event a., Implication <a =/> b>.} |- Event b.
 Event Inference_BeliefDeduction(Event *component, Implication *compound);
+//STDP
+double STDP(double occurrenceA, double occurrenceB);
+
 #endif
