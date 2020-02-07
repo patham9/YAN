@@ -103,7 +103,7 @@ void NAL_GenerateRuleTable()
 
 void NAL_DerivedEvent(Term conclusionTerm, long conclusionOccurrence, Truth conclusionTruth, Stamp stamp, long currentTime, double parentPriority, double conceptPriority)
 {
-    Event e = { .term = conclusionTerm,
+    Event e = { .term = Term_WithHash(conclusionTerm),
                 .type = EVENT_TYPE_BELIEF, 
                 .truth = conclusionTruth, 
                 .stamp = stamp,

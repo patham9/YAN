@@ -163,6 +163,8 @@ void Memory_printAddedImplication(Term *implication, Truth *truth, bool input, b
 
 void Memory_addEvent(Event *event, long currentTime, double priority, bool input, bool derived, bool readded, bool revised)
 {
+    assert(event->term.hash > 0, "Hash needs to be set!");
+    assert(event->creationTime > 0, "Event creation time needs to be bigger than 0!");
     if(readded) //readded events get durability applied, they already got complexity-penalized
     {
         priority *= EVENT_DURABILITY_ON_USAGE;
@@ -208,8 +210,8 @@ void Memory_addEvent(Event *event, long currentTime, double priority, bool input
             if(Narsese_copulaEquals(event->term.atoms[0], '$'))
             {
                 //get predicate and add the subject to precondition table as an implication
-                Term subject = Term_ExtractSubterm(&event->term, 1);
-                Term predicate = Term_ExtractSubterm(&event->term, 2);
+                Term subject = Term_WithHash(Term_ExtractSubterm(&event->term, 1));
+                Term predicate = Term_WithHash(Term_ExtractSubterm(&event->term, 2));
                 Memory_Conceptualize(&predicate);
                 int target_concept_i;
                 if(Memory_FindConceptByTerm(&predicate, &target_concept_i)) // && Memory_FindConceptByTerm(&subject, &source_concept_i))
@@ -251,6 +253,7 @@ void Memory_addEvent(Event *event, long currentTime, double priority, bool input
                     imp.term.atoms[0] = Narsese_AtomicTermIndex("$");
                     Term_OverrideSubterm(&imp.term, 1, &subject);
                     Term_OverrideSubterm(&imp.term, 2, &predicate);
+                    imp.term = Term_WithHash(imp.term);
                     Table_AddAndRevise(&target_concept->precondition_beliefs[opi], &imp);
                     Memory_printAddedEvent(event, priority, input, derived, revised);
                 }

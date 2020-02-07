@@ -10,8 +10,7 @@ void Event_SetTerm(Event *event, Term term)
 long base = 1;
 Event Event_InputEvent(Term term, char type, Truth truth, long currentTime)
 {
-    return (Event) { .term = term,
-                     /*.term_hash = Term_Hash(&term),*/
+    return (Event) { .term = Term_WithHash(term),
                      .type = type, 
                      .truth = truth, 
                      .stamp = (Stamp) { .evidentalBase = { base++ } }, 

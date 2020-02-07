@@ -336,7 +336,7 @@ Term Narsese_Term(char *narsese)
     char** tokens_prefix = Narsese_PrefixTransform(narsese_expanded);
     int nt = 0; for(;tokens_prefix[nt] != NULL; nt++){}
     buildBinaryTree(&ret, tokens_prefix, 0, 1, nt);
-    return ret;
+    return Term_WithHash(ret);
 }
 
 void Narsese_Sentence(char *narsese, Term *destTerm, char *punctuation, bool *isEvent, Truth *destTv)
@@ -378,7 +378,7 @@ Term Narsese_Sequence(Term *a, Term *b)
     ret.atoms[0] = Narsese_AtomicTermIndex("+");
     Term_OverrideSubterm(&ret,1,a);
     Term_OverrideSubterm(&ret,2,b);
-    return ret;
+    return Term_WithHash(ret);
 }
 
 Term Narsese_AtomicTerm(char *name)
@@ -386,7 +386,7 @@ Term Narsese_AtomicTerm(char *name)
     int number = Narsese_AtomicTermIndex(name);
     Term ret = {0};
     ret.atoms[0] = number;
-    return ret;
+    return Term_WithHash(ret);
 }
 
 void Narsese_PrintAtom(Atom atom)
@@ -590,10 +590,10 @@ Term Narsese_GetPreconditionWithoutOp(Term *precondition)
         Term potential_op = Term_ExtractSubterm(precondition, 2);
         if(Narsese_isOperation(&potential_op))
         {
-            return Term_ExtractSubterm(precondition, 1);
+            return Term_WithHash(Term_ExtractSubterm(precondition, 1));
         }
     }
-    return *precondition;
+    return Term_WithHash(*precondition);
 }
 
 bool Narsese_IsNonCopulaAtom(Atom atom)

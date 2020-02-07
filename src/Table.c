@@ -2,11 +2,12 @@
 
 Implication *Table_Add(Table *table, Implication *imp)
 {
+    assert(imp->creationTime > 0, "Implication time needs to be bigger than 0!");
     assert(imp->sourceConcept != NULL, "Attempted to add an implication without source concept!");
     double impTruthExp = Truth_Expectation(imp->truth);
     for(int i=0; i<TABLE_SIZE; i++)
     {
-        bool same_term = (/*table->array[i].term_hash == imp->term_hash &&*/ Term_Equal(&table->array[i].term,&imp->term));
+        bool same_term = (table->array[i].creationTime>0 && Term_Equal(&table->array[i].term,&imp->term)); //creation time 0 means place is not used
         //either it's not yet full and we reached a new space,
         //or the term is different and the truth expectation is higher
         //or the term is the same and the confidence is higher
@@ -51,12 +52,13 @@ static void Table_SantiyCheck(Table *table)
 
 Implication *Table_AddAndRevise(Table *table, Implication *imp)
 {
+    assert(imp->creationTime > 0, "Implication time needs to be bigger than 0!");
     IN_DEBUG ( Table_SantiyCheck(table); )
     //1. find element with same Term
     int same_i = -1;
     for(int i=0; i<table->itemsAmount; i++)
     {
-        if(/*imp->term_hash == table->array[i].term_hash &&*/ Term_Equal(&imp->term, &table->array[i].term))
+        if(table->array[i].creationTime>0 && Term_Equal(&imp->term, &table->array[i].term))
         {
             same_i = i;
             break;

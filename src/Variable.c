@@ -78,7 +78,7 @@ Term Variable_ApplySubstitute(Term general, Substitution substitution)
             Term_OverrideSubterm(&general, i, &substitution.map[(int) general_atom]);
         }
     }
-    return general;
+    return Term_WithHash(general); //not happening in RuleTable, fine to calc hash here
 }
 
 //Search for variables which appear twice extensionally, if also appearing in the right side of the implication

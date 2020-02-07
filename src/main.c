@@ -38,7 +38,7 @@ void FIFO_Test()
     FIFO fifo2 = {0};
     for(int i=0; i<FIFO_SIZE*2; i++)
     {
-        Term zero = (Term) {0};
+        Term zero = Term_WithHash((Term) {0});
         FIFO_Add(&event2, &fifo2);
         if(i < FIFO_SIZE && i < MAX_SEQUENCE_LEN)
         {
@@ -100,6 +100,7 @@ void Table_Test()
 {
     puts(">>Table test start");
     Concept sourceConcept = {0};
+    sourceConcept.term = Term_WithHash(sourceConcept.term);
     Table table = {0};
     for(int i=TABLE_SIZE*2; i>=1; i--)
     {
@@ -107,7 +108,8 @@ void Table_Test()
                             .truth = { .frequency = 1.0, .confidence = 1.0/((double)(i+1)) },
                             .stamp = { .evidentalBase = { i } },
                             .occurrenceTimeOffset = 10,
-                            .sourceConcept = &sourceConcept };
+                            .sourceConcept = &sourceConcept,
+                            .creationTime = 1 };
         Table_Add(&table, &imp);
     }
     for(int i=0; i<TABLE_SIZE; i++)
@@ -118,7 +120,8 @@ void Table_Test()
                         .truth = { .frequency = 1.0, .confidence = 0.9},
                         .stamp = { .evidentalBase = { TABLE_SIZE*2+1 } },
                         .occurrenceTimeOffset = 10,
-                        .sourceConcept = &sourceConcept };
+                        .sourceConcept = &sourceConcept,
+                        .creationTime = 1 };
     assert(table.array[0].truth.confidence==0.5, "The highest confidence one should be the first.");
     Table_AddAndRevise(&table, &imp);
     assert(table.array[0].truth.confidence>0.5, "The revision result should be more confident than the table element that existed.");
@@ -1356,7 +1359,7 @@ void RuleTable_Test()
     YAN_INIT();
     YAN_AddInput(Narsese_Term("<cat --> animal>"), EVENT_TYPE_BELIEF, YAN_DEFAULT_TRUTH, true);
     YAN_AddInput(Narsese_Term("<animal --> being>"), EVENT_TYPE_BELIEF, YAN_DEFAULT_TRUTH, true);
-    YAN_Cycles(1);
+    //YAN_Cycles(1);
     puts(">>RuleTable Test successul");
 }
 

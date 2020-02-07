@@ -35,7 +35,7 @@ Implication Inference_BeliefInduction(Event *a, Event *b)
     term.atoms[0] = Narsese_AtomicTermIndex("$");
     Term_OverrideSubterm(&term, 1, &a->term);
     Term_OverrideSubterm(&term, 2, &b->term);
-    return (Implication) { .term = term, 
+    return (Implication) { .term = Term_WithHash(term), 
                            .truth = Truth_Eternalize(Truth_Induction(truthA, truthB)),
                            .stamp = conclusionStamp,
                            .occurrenceTimeOffset = b->occurrenceTime - a->occurrenceTime,
@@ -47,7 +47,7 @@ Implication Inference_BeliefInduction(Event *a, Event *b)
 static Event Inference_EventRevision(Event *a, Event *b)
 {
     DERIVATION_STAMP_AND_TIME(a,b)
-    return (Event) { .term = a->term, 
+    return (Event) { .term = a->term,
                      .type = a->type,
                      .truth = Truth_Revision(truthA, truthB),
                      .stamp = conclusionStamp, 
@@ -99,7 +99,7 @@ Event Inference_OperationDeduction(Event *compound, Event *component, long curre
     DERIVATION_STAMP(component,compound)
     Event compoundUpdated = Inference_EventUpdate(compound, currentTime);
     Event componentUpdated = Inference_EventUpdate(component, currentTime);
-    return (Event) { .term = compound->term, 
+    return (Event) { .term = compound->term,
                      .type = EVENT_TYPE_GOAL, 
                      .truth = Truth_Deduction(compoundUpdated.truth, componentUpdated.truth),
                      .stamp = conclusionStamp, 
@@ -160,7 +160,7 @@ Event Inference_BeliefDeduction(Event *component, Implication *compound)
     assert(Narsese_copulaEquals(compound->term.atoms[0],'$'), "Not a valid implication term!");
     DERIVATION_STAMP(component,compound)
     Term postcondition = Term_ExtractSubterm(&compound->term, 2);
-    return (Event) { .term = postcondition, 
+    return (Event) { .term = Term_WithHash(postcondition), 
                      .type = EVENT_TYPE_BELIEF, 
                      .truth = Truth_Deduction(compound->truth, component->truth),
                      .stamp = conclusionStamp, 

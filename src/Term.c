@@ -15,8 +15,18 @@ void Term_Print(Term *term)
     }
 }
 
-bool Term_Equal(Term *a, Term *b)
-{
+bool Term_Equal(Term *a, Term *b) //either both have hashes (like in RuleTabel where terems are shortlived)
+{   //or none for the comparison to succeed, and in debug mode it's made sure they don't differ when the terms are equal (expensive!)
+    if(a->hash != b->hash)
+    {
+        return false;
+    }
+    IN_DEBUG
+    ( 
+        assert(a->hash > 0 && b->hash > 0, "Unhashed terms are compared!");
+        bool equal = memcmp(&a->atoms, &b->atoms, COMPOUND_TERM_SIZE_MAX*sizeof(Atom)) == 0; 
+        assert(!(equal && a->hash != b->hash), "Equal terms although hashes differ");
+    )
     return memcmp(a, b, sizeof(Term)) == 0;
 }
 
@@ -57,8 +67,8 @@ bool Term_OverrideSubterm(Term *term, int i, Term *subterm)
 Term Term_ExtractSubterm(Term *term, int j)
 {
     Term ret = {0}; //ret is where to "write into" 
-    Term_RelativeOverride(&ret, 0, term, j); //where we begin to write at root, 0 (always succeeds as we extract just a subset)
-    return ret; //reading from term beginning at i
+    Term_RelativeOverride(&ret, 0, term, j); //where we begin to write at root, 0 (always succeeds as we extract just a subset) reading from term beginning at i
+    return ret; //Term_WithHash(ret); //DEPENDS IF RULE TABLE SHOULD USE HASHES, MIGHT BE SLOW SINCE THEY WOULD BE OFTEN CALCULATED!
 }
 
 int Term_Complexity(Term *term)
@@ -73,3 +83,26 @@ int Term_Complexity(Term *term)
     }
     return s;
 }
+
+Term Term_WithHash(Term term)
+{
+    if(term.hash != 0)
+    {
+        return term; //already hashed!
+    }
+    int pieces = TERM_ATOMS_SIZE / TERM_HASH_TYPE_SIZE;
+    assert(TERM_HASH_TYPE_SIZE*pieces == TERM_ATOMS_SIZE, "Not a multiple, issue in hash calculation");
+    TERM_HASH_TYPE *pt = (TERM_HASH_TYPE*) &term.atoms;
+    term.hash = 0;
+    for(int i=0; i<pieces; i++, pt++)
+    {
+        term.hash ^= *pt;
+    }
+    if(++term.hash == 0)
+    {
+        term.hash = 1;
+    }
+    assert(term.hash != 0, "Hashing error: 0 is an invalid hash!");
+    return term;
+}
+
