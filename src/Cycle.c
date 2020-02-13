@@ -193,10 +193,12 @@ static void Cycle_ReinforceLink(Event *a, Event *b)
                     if(revised_precon != NULL)
                     {
                         revised_precon->creationTime = currentTime; //for evaluation
-                        revised_precon->sourceConcept = A;
-                        revised_precon->sourceConceptTerm = A->term;
                         /*IN_DEBUG( if(true && revised_precon->term_hash != 0) { fputs("REVISED pre-condition implication: ", stdout); Implication_Print(revised_precon); } ) */
                         Memory_printAddedImplication(&revised_precon->term, &revised_precon->truth, false, revised_precon->truth.confidence > precondition_implication.truth.confidence);
+                    }
+                    if(operationID == 0) //also for postcondition:
+                    {
+                        Table_AddAndRevise(&A->postcondition_beliefs, &precondition_implication);
                     }
                 }
             }
@@ -325,67 +327,89 @@ void Cycle_Perform(long currentTime)
     {
         Event *e = &selectedEvents[i];
         double priority = selectedEventsPriority[i];
+        //Implications:
+        Concept *c_event = Memory_Conceptualize(&e->term, currentTime);
+        if(c_event != NULL && e->type == EVENT_TYPE_BELIEF)
+        {
+            for(int i=0; i<c_event->postcondition_beliefs.itemsAmount; i++)
+            {
+                Implication *imp = &c_event->postcondition_beliefs.array[i];
+                assert(Narsese_copulaEquals(imp->term.atoms[0],'$'), "Not a valid implication term!");
+                Term precondition_with_op = Term_ExtractSubterm(&imp->term, 1);
+                Term precondition = Narsese_GetPreconditionWithoutOp(&precondition_with_op);
+                Substitution subs = Variable_Unify(&precondition, &e->term);
+                if(subs.success)
+                {
+                    Implication updated_imp = *imp;
+                    updated_imp.term = Variable_ApplySubstitute(updated_imp.term, subs);
+                    Event predicted = Inference_BeliefDeduction(e, &updated_imp);
+                    NAL_DerivedEvent(predicted.term, predicted.occurrenceTime, predicted.truth, predicted.stamp, currentTime, priority, Truth_Expectation(imp->truth));
+                }
+            }
+        }
         Term dummy_term = {0};
         Truth dummy_truth = {0};
         RuleTable_Apply(e->term, dummy_term, e->truth, dummy_truth, e->occurrenceTime, e->stamp, currentTime, priority, 1, false); 
         IN_DEBUG( puts("Event was selected:"); Event_Print(e); )
+        //for each atom in the event term loop over all the concepts in the table
+        static bool already_used[CONCEPTS_MAX];
+        memset(already_used, false, CONCEPTS_MAX);
         #pragma omp parallel for
-        for(int j=0; j<concepts.itemsAmount; j++)
+        for(int k=0; k<COMPOUND_TERM_SIZE_MAX; k++)
         {
-            Concept *c = concepts.items[j].address;
-            if(c->belief.type != EVENT_TYPE_DELETED)
+            static Concept *invertedTermRow[TERMS_MAX][CONCEPTS_MAX];
+            Atom atom = e->term.atoms[k];
+            memcpy(&invertedTermRow[(int) atom], &invertedAtomIndex[atom], CONCEPTS_MAX);
+            if(Narsese_IsSimpleAtom(atom))
             {
-                //use eternal belief as belief
-                Event* belief = &c->belief;
-                Event future_belief = c->predicted_belief;
-                //but if there is a predicted one in the event's window, use this one
-                if(e->occurrenceTime != OCCURRENCE_ETERNAL && future_belief.type != EVENT_TYPE_DELETED &&
-                   abs(e->occurrenceTime - future_belief.occurrenceTime) < EVENT_BELIEF_DISTANCE) //take event as belief if it's stronger
+                //#pragma omp parallel for
+                for(int concept_i=0; concept_i < CONCEPTS_MAX; concept_i++)
                 {
-                    future_belief.truth = Truth_Projection(future_belief.truth, future_belief.occurrenceTime, e->occurrenceTime);
-                    future_belief.occurrenceTime = e->occurrenceTime;
-                    belief = &future_belief;
-                }
-                //unless there is an actual belief which falls into the event's window
-                Event project_belief = c->belief_spike;
-                if(e->occurrenceTime != OCCURRENCE_ETERNAL && project_belief.type != EVENT_TYPE_DELETED &&
-                   abs(e->occurrenceTime - project_belief.occurrenceTime) < EVENT_BELIEF_DISTANCE) //take event as belief if it's stronger
-                {
-                    project_belief.truth = Truth_Projection(project_belief.truth, project_belief.occurrenceTime, e->occurrenceTime);
-                    project_belief.occurrenceTime = e->occurrenceTime;
-                    belief = &project_belief;
-                }
-                //Check for overlap and apply inference rules
-                if(!Stamp_checkOverlap(&e->stamp, &belief->stamp))
-                {
-                    Stamp stamp = Stamp_make(&e->stamp, &belief->stamp);
-                    if(PRINT_CONTROL_INFO)
+                    assert(concept_i<CONCEPTS_MAX, "Too small inverted atom index!");
+                    Concept *c = invertedTermRow[(int) atom][concept_i];
+                    bool used = false;
+                    //#pragma omp critical
+                    //{
+                    //    used = already_used[concept_i];
+                        //already_used[concept_i] = true; //TODO look into!
+                    //}
+                    if(c != NULL && !used && c->belief.type != EVENT_TYPE_DELETED)
                     {
-                        fputs("Apply rule table on ", stdout);
-                        Narsese_PrintTerm(&e->term);
-                        printf(" Priority=%f\n", priority);
-                        fputs(" and ", stdout);
-                        Narsese_PrintTerm(&c->term);
-                        puts("");
-                    }
-                    RuleTable_Apply(e->term, c->term, e->truth, belief->truth, e->occurrenceTime, stamp, currentTime, priority, c->priority, true);
-                }
-            }
-            if(e->type == EVENT_TYPE_BELIEF)
-            {
-                for(int i=0; i<c->precondition_beliefs[0].itemsAmount; i++)
-                {
-                    Implication *imp = &c->precondition_beliefs[0].array[i];
-                    assert(Narsese_copulaEquals(imp->term.atoms[0],'$'), "Not a valid implication term!");
-                    Term precondition_with_op = Term_ExtractSubterm(&imp->term, 1);
-                    Term precondition = Narsese_GetPreconditionWithoutOp(&precondition_with_op);
-                    Substitution subs = Variable_Unify(&precondition, &e->term);
-                    if(subs.success)
-                    {
-                        Implication updated_imp = *imp;
-                        updated_imp.term = Variable_ApplySubstitute(updated_imp.term, subs);
-                        Event predicted = Inference_BeliefDeduction(e, &updated_imp);
-                        NAL_DerivedEvent(predicted.term, predicted.occurrenceTime, predicted.truth, predicted.stamp, currentTime, priority, Truth_Expectation(imp->truth));
+                        //use eternal belief as belief
+                        Event* belief = &c->belief;
+                        Event future_belief = c->predicted_belief;
+                        //but if there is a predicted one in the event's window, use this one
+                        if(e->occurrenceTime != OCCURRENCE_ETERNAL && future_belief.type != EVENT_TYPE_DELETED &&
+                           abs(e->occurrenceTime - future_belief.occurrenceTime) < EVENT_BELIEF_DISTANCE) //take event as belief if it's stronger
+                        {
+                            future_belief.truth = Truth_Projection(future_belief.truth, future_belief.occurrenceTime, e->occurrenceTime);
+                            future_belief.occurrenceTime = e->occurrenceTime;
+                            belief = &future_belief;
+                        }
+                        //unless there is an actual belief which falls into the event's window
+                        Event project_belief = c->belief_spike;
+                        if(e->occurrenceTime != OCCURRENCE_ETERNAL && project_belief.type != EVENT_TYPE_DELETED &&
+                           abs(e->occurrenceTime - project_belief.occurrenceTime) < EVENT_BELIEF_DISTANCE) //take event as belief if it's stronger
+                        {
+                            project_belief.truth = Truth_Projection(project_belief.truth, project_belief.occurrenceTime, e->occurrenceTime);
+                            project_belief.occurrenceTime = e->occurrenceTime;
+                            belief = &project_belief;
+                        }
+                        //Check for overlap and apply inference rules
+                        if(!Stamp_checkOverlap(&e->stamp, &belief->stamp))
+                        {
+                            Stamp stamp = Stamp_make(&e->stamp, &belief->stamp);
+                            if(PRINT_CONTROL_INFO)
+                            {
+                                fputs("Apply rule table on ", stdout);
+                                Narsese_PrintTerm(&e->term);
+                                printf(" Priority=%f\n", priority);
+                                fputs(" and ", stdout);
+                                Narsese_PrintTerm(&c->term);
+                                puts("");
+                            }
+                            RuleTable_Apply(e->term, c->term, e->truth, belief->truth, e->occurrenceTime, stamp, currentTime, priority, c->priority, true);
+                        }
                     }
                 }
             }

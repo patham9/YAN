@@ -14,5 +14,7 @@
 //Methods//
 //-------//
 void Shell_Start();
+//debug command:
+void PrintInvertedAtomIndex();
 
 #endif

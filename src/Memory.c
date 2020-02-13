@@ -40,6 +40,14 @@ void Memory_INIT()
         operations[i] = (Operation) {0};
     }
     concept_id = 0;
+    //reset inverted term index as well:
+    for(int i=0; i<TERMS_MAX; i++)
+    {
+        for(int j=0; j<CONCEPTS_MAX; j++)
+        {
+            invertedAtomIndex[i][j] = NULL;
+        }
+    }
 }
 
 bool Memory_FindConceptByTerm(Term *term, int *returnIndex)
@@ -62,6 +70,58 @@ bool Memory_FindConceptByTerm(Term *term, int *returnIndex)
     return false;
 }
 
+Concept *invertedAtomIndex[TERMS_MAX][CONCEPTS_MAX];
+void Memory_AddToInvertedAtomIndex(Term term, Concept *c)
+{
+    for(int i=0; i<COMPOUND_TERM_SIZE_MAX; i++)
+    {
+        Atom atom = term.atoms[i];
+        bool notCopula = Narsese_IsNonCopulaAtom(atom);
+        //If it's not a copula, search for the first empty one, and insert the concept there
+        if(notCopula)
+        {
+            for(int j=0; invertedAtomIndex[(int) atom][j]!=c; j++) //go through invertedAtomIndex[atom] as long as not equal
+            {
+                assert(j<CONCEPTS_MAX, "invertedAtomIndex too small!");
+                if(invertedAtomIndex[(int) atom][j] == NULL) //and put in if null (empty space found!), so we are done
+                {
+                    invertedAtomIndex[(int) atom][j] = c;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void Memory_RemoveFromInvertedAtomIndex(Term term, Concept *c)
+{
+    for(int i=0; i<COMPOUND_TERM_SIZE_MAX; i++)
+    {
+        Atom atom = term.atoms[i];
+        if(Narsese_IsSimpleAtom(atom))
+        {
+            //1. Get position j where inverted index value equals c->id
+            int j=0;
+            for(; invertedAtomIndex[(int) atom][j]!=c; j++)
+            {
+                if(invertedAtomIndex[(int) atom][j] == NULL)
+                {
+                    return;
+                }
+                assert(j+1<CONCEPTS_MAX, "invertedAtomIndex too small! (1)");
+            }
+            //2. Shift left the right entries to replace value at j (leaving NULL at end of course)
+            int k;
+            for(k=j; invertedAtomIndex[(int) atom][k]!=NULL; k++)
+            {
+                assert(k+2<CONCEPTS_MAX, "invertedAtomIndex too small! (2)");
+                invertedAtomIndex[(int) atom][k] = invertedAtomIndex[(int) atom][k+1];
+            }
+            invertedAtomIndex[(int) atom][k+1] = NULL;
+        }
+    }
+}
+
 Concept* Memory_Conceptualize(Term *term, long currentTime)
 {
     if(Narsese_isOperation(term)) //don't conceptualize operations
@@ -78,6 +138,15 @@ Concept* Memory_Conceptualize(Term *term, long currentTime)
         if(feedback.added)
         {
             addedConcept = feedback.addedItem.address;
+            //Remove the evicted one too:
+            if(feedback.evicted)
+            {
+                Concept *evicted = feedback.evictedItem.address;
+                Memory_RemoveFromInvertedAtomIndex(evicted->term, evicted);
+            }
+            //Add term to inverted atom index as well:
+            Memory_AddToInvertedAtomIndex(*term, addedConcept);
+            //Now write the concept to add (value) to the added concept's address (recyling)
             *addedConcept = (Concept) {0};
             Concept_SetTerm(addedConcept, *term);
             addedConcept->id = concept_id;
@@ -217,7 +286,7 @@ void Memory_addEvent(Event *event, long currentTime, double priority, bool input
                 Term subject = Term_ExtractSubterm(&event->term, 1);
                 Term predicate = Term_ExtractSubterm(&event->term, 2);
                 Concept *target_concept = Memory_Conceptualize(&predicate, currentTime);
-                if(target_concept != NULL) // && Memory_FindConceptByTerm(&subject, &source_concept_i))
+                if(target_concept != NULL)
                 {
                     Implication imp = { .truth = eternal_event.truth,
                                         .stamp = eternal_event.stamp,
@@ -250,6 +319,10 @@ void Memory_addEvent(Event *event, long currentTime, double priority, bool input
                         Term_OverrideSubterm(&imp.term, 1, &subject);
                         Term_OverrideSubterm(&imp.term, 2, &predicate);
                         Table_AddAndRevise(&target_concept->precondition_beliefs[opi], &imp);
+                        if(opi == 0)
+                        {
+                            Table_AddAndRevise(&sourceConcept->postcondition_beliefs, &imp);
+                        }
                         Memory_printAddedEvent(event, priority, input, derived, revised);
                     }
                 }
