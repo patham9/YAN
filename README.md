@@ -1,4 +1,4 @@
-*MOVED TO https://github.com/opennars/OpenNARS-for-Applications*
+**MOVED TO https://github.com/opennars/OpenNARS-for-Applications**
 
 **Yet Another NARS**
 
