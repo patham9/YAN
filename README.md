@@ -1,3 +1,5 @@
+MOVED TO https://github.com/opennars/OpenNARS-for-Applications
+
 **Yet Another NARS**
 
 ![YAN](https://user-images.githubusercontent.com/8284677/71787964-c96c8400-3015-11ea-91ac-2b98d621be33.png)
