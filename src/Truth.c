@@ -138,15 +138,18 @@ Truth Truth_Difference(Truth v1, Truth v2)
     return (Truth) { .frequency = f1 * (1.0 - f2), .confidence = c1 * c2 };
 }
 
-Truth Truth_Conversion(Truth v1, Truth v2)
-{
-    return (Truth) { .frequency = 1.0, .confidence = Truth_w2c(v1.frequency * v1.confidence) };
-}
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 
 Truth Truth_Negation(Truth v1, Truth v2)
 {
     TruthValues(v1,v2, f1,c1, f2,c2);
     return (Truth) { .frequency = 1.0-f1, .confidence = c1 };
+}
+
+Truth Truth_Conversion(Truth v1, Truth v2)
+{
+    return (Truth) { .frequency = 1.0, .confidence = Truth_w2c(v1.frequency * v1.confidence) };
 }
 
 Truth Truth_StructuralDeduction(Truth v1, Truth v2)
@@ -158,6 +161,8 @@ Truth Truth_StructuralAbduction(Truth v1, Truth v2)
 {
     return Truth_Abduction(v1, STRUCTURAL_TRUTH);
 }
+
+#pragma GCC diagnostic pop
 
 bool Truth_Equal(Truth *v1, Truth *v2)
 {
