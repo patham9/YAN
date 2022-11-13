@@ -73,11 +73,11 @@ void Process_Args(int argc, char *argv[])
 void Display_Help()
 {
     puts("\nAll tests ran successfully, if you wish to run examples now, just pass the corresponding parameter:");
-    puts("NAR pong (starts Pong example)");
-    puts("NAR pong2 (starts Pong2 example)");
-    puts("NAR testchamber (starts Test Chamber multistep procedure learning example)");
-    puts("NAR alien (starts the alien example)");
-    puts("NAR shell (starts the interactive NAL shell)");
+    puts("YAN pong (starts Pong example)");
+    puts("YAN pong2 (starts Pong2 example)");
+    puts("YAN testchamber (starts Test Chamber multistep procedure learning example)");
+    puts("YAN alien (starts the alien example)");
+    puts("YAN shell (starts the interactive NAL shell)");
 }
 
 int main(int argc, char *argv[])
